@@ -7,8 +7,8 @@ export type ChatItemData = {
 export type MessageData = {
   id: string
   role: 'user' | 'assistant'
-  name: string
   content: string
+  timestamp: string
 }
 
 export const mockChats: ChatItemData[] = [
@@ -23,41 +23,38 @@ export const mockMessages: MessageData[] = [
   {
     id: 'msg-1',
     role: 'assistant',
-    name: 'GigaChat',
-    content:
-      'Привет! Я могу помочь с планированием интерфейса. **Что обсудим?**',
+    content: 'Привет! Я могу помочь с планированием интерфейса. **Что обсудим?**',
+    timestamp: '2026-03-12T10:00:00.000Z',
   },
   {
     id: 'msg-2',
     role: 'user',
-    name: 'Вы',
     content: 'Нужен скелет приложения: sidebar, чат и настройки.',
+    timestamp: '2026-03-12T10:01:00.000Z',
   },
   {
     id: 'msg-3',
     role: 'assistant',
-    name: 'GigaChat',
     content:
       'Отлично. Могу предложить структуру:\n\n- Layout с гибкой сеткой\n- Список чатов\n- Область сообщений',
+    timestamp: '2026-03-12T10:02:00.000Z',
   },
   {
     id: 'msg-4',
     role: 'user',
-    name: 'Вы',
-    content:
-      'Добавь поддержку markdown. Например:\n\n```ts\nconst ready = true\n```',
+    content: 'Добавь поддержку markdown. Например:\n\n```ts\nconst ready = true\n```',
+    timestamp: '2026-03-12T10:03:00.000Z',
   },
   {
     id: 'msg-5',
     role: 'assistant',
-    name: 'GigaChat',
-    content:
-      'Готово. *Курсив* и **жирный** поддерживаются, списки и код тоже.',
+    content: 'Готово. *Курсив* и **жирный** поддерживаются, списки и код тоже.',
+    timestamp: '2026-03-12T10:04:00.000Z',
   },
   {
     id: 'msg-6',
     role: 'user',
-    name: 'Вы',
     content: 'Супер, продолжай в том же духе.',
+    timestamp: '2026-03-12T10:05:00.000Z',
   },
 ]

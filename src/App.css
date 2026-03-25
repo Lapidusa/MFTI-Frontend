@@ -207,6 +207,10 @@
   color: var(--color-muted);
 }
 
+.message-time {
+  opacity: 0.8;
+}
+
 .message-avatar {
   width: 26px;
   height: 26px;
@@ -317,6 +321,11 @@
   color: var(--color-text);
   line-height: 20px;
   overflow-y: hidden;
+}
+
+.input-area textarea:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .send-button,

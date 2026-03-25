@@ -1,17 +1,26 @@
 import { useRef, useState } from 'react'
+import type { FormEvent, KeyboardEvent } from 'react'
 
-export function InputArea() {
+type InputAreaProps = {
+  isLoading: boolean
+  onSend: (value: string) => void
+}
+
+export function InputArea({ isLoading, onSend }: InputAreaProps) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const resize = () => {
-    const el = textareaRef.current
-    if (!el) return
-    const styles = window.getComputedStyle(el)
+    const element = textareaRef.current
+
+    if (!element) return
+
+    const styles = window.getComputedStyle(element)
     const lineHeight = Number.parseFloat(styles.lineHeight)
     const maxHeight = lineHeight * 5 + 24
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
+
+    element.style.height = 'auto'
+    element.style.height = `${Math.min(element.scrollHeight, maxHeight)}px`
   }
 
   const handleChange = (next: string) => {
@@ -20,12 +29,21 @@ export function InputArea() {
   }
 
   const handleSend = () => {
-    if (!value.trim()) return
+    const trimmedValue = value.trim()
+
+    if (!trimmedValue || isLoading) return
+
+    onSend(trimmedValue)
     setValue('')
     requestAnimationFrame(resize)
   }
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    handleSend()
+  }
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       handleSend()
@@ -33,15 +51,16 @@ export function InputArea() {
   }
 
   return (
-    <div className="input-area">
-      <button className="icon-button attach-button" type="button">
-        📎
+    <form className="input-area" onSubmit={handleSubmit}>
+      <button className="icon-button attach-button" type="button" aria-label="Прикрепить">
+        +
       </button>
       <textarea
         ref={textareaRef}
         value={value}
         rows={1}
         placeholder="Введите сообщение"
+        disabled={isLoading}
         onChange={(event) => handleChange(event.target.value)}
         onKeyDown={handleKeyDown}
       />
@@ -53,14 +72,9 @@ export function InputArea() {
       >
         Стоп
       </button>
-      <button
-        className="send-button"
-        type="button"
-        disabled={!value.trim()}
-        onClick={handleSend}
-      >
+      <button className="send-button" type="submit" disabled={!value.trim() || isLoading}>
         Отправить
       </button>
-    </div>
+    </form>
   )
 }
