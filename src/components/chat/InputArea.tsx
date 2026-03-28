@@ -4,9 +4,10 @@ import type { FormEvent, KeyboardEvent } from 'react'
 type InputAreaProps = {
   isLoading: boolean
   onSend: (value: string) => void
+  onStop: () => void
 }
 
-export function InputArea({ isLoading, onSend }: InputAreaProps) {
+export function InputArea({ isLoading, onSend, onStop }: InputAreaProps) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
@@ -44,37 +45,44 @@ export function InputArea({ isLoading, onSend }: InputAreaProps) {
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault()
       handleSend()
     }
   }
 
+  const isSubmitDisabled = !value.trim() || isLoading
+
   return (
     <form className="input-area" onSubmit={handleSubmit}>
       <button className="icon-button attach-button" type="button" aria-label="Прикрепить">
-        +
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M4 12H20M12 4V20"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </button>
       <textarea
         ref={textareaRef}
         value={value}
         rows={1}
         placeholder="Введите сообщение"
-        disabled={isLoading}
         onChange={(event) => handleChange(event.target.value)}
         onKeyDown={handleKeyDown}
       />
-      <button
-        className="stop-button"
-        type="button"
-        disabled
-        title="Функция остановки появится позже"
-      >
-        Стоп
-      </button>
-      <button className="send-button" type="submit" disabled={!value.trim() || isLoading}>
-        Отправить
-      </button>
+      {isLoading ? (
+        <button className="stop-button" type="button" onClick={onStop}>
+          Стоп
+        </button>
+      ) : (
+        <button className="send-button" type="submit" disabled={isSubmitDisabled}>
+          Отправить
+        </button>
+      )}
     </form>
   )
 }

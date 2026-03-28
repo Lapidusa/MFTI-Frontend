@@ -1,5 +1,6 @@
 .app-root {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--color-bg);
   color: var(--color-text);
 }
@@ -7,6 +8,7 @@
 .app-layout {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .sidebar {
@@ -145,6 +147,7 @@
 
 .chat-window {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background: var(--color-bg);
@@ -152,12 +155,17 @@
 }
 
 .chat-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
   border-bottom: 1px solid var(--color-border);
   gap: 12px;
+  background: color-mix(in srgb, var(--color-panel) 88%, transparent);
+  backdrop-filter: blur(10px);
 }
 
 .chat-title {
@@ -182,6 +190,7 @@
   flex-direction: column;
   gap: 18px;
   overflow-y: auto;
+  min-width: 0;
 }
 
 .message-list.empty {
@@ -225,7 +234,8 @@
 }
 
 .message-bubble {
-  max-width: 70%;
+  width: fit-content;
+  max-width: min(70%, 46rem);
   padding: 14px 16px;
   border-radius: 16px;
   background: var(--color-assistant);
@@ -242,6 +252,11 @@
   padding: 10px 12px;
   border-radius: 10px;
   overflow-x: auto;
+}
+
+.message-content {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .message-content code {
@@ -262,19 +277,28 @@
   position: absolute;
   right: 12px;
   bottom: 10px;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--color-copy-bg);
   border: none;
   color: inherit;
   font-size: 12px;
   padding: 6px 10px;
   border-radius: 8px;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.2s ease;
   cursor: pointer;
 }
 
-.message:hover .copy-button {
+.message.assistant:hover .copy-button,
+.message.assistant:focus-within .copy-button {
   opacity: 1;
+  pointer-events: auto;
+}
+
+.copy-button.is-copied {
+  opacity: 1;
+  pointer-events: auto;
+  background: var(--color-copy-bg-active);
 }
 
 .typing-indicator {
@@ -304,15 +328,17 @@
 
 .input-area {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 10px;
   padding: 16px 24px;
   border-top: 1px solid var(--color-border);
   background: var(--color-panel);
+  min-width: 0;
 }
 
 .input-area textarea {
   flex: 1;
+  min-width: 0;
   resize: none;
   border-radius: 12px;
   border: 1px solid var(--color-border);
@@ -334,6 +360,7 @@
   border-radius: 10px;
   border: none;
   cursor: pointer;
+  align-self: center;
 }
 
 .send-button {
@@ -376,6 +403,19 @@
 
 .attach-button {
   font-size: 18px;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel);
+  align-self: center;
+  line-height: 1;
+}
+
+.attach-button svg {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .settings-panel {
@@ -392,7 +432,7 @@
 .settings-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--color-backdrop);
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -620,7 +660,7 @@
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--color-backdrop);
     opacity: 0;
     transition: opacity 0.2s ease;
     pointer-events: none;
@@ -655,7 +695,37 @@
     padding: 16px;
   }
 
+  .input-area {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  .attach-button {
+    order: 1;
+    flex: 0 0 44px;
+    min-height: 44px;
+  }
+
+  .input-area textarea {
+    order: 2;
+    flex-basis: calc(100% - 54px);
+  }
+
+  .send-button,
+  .stop-button {
+    order: 3;
+    width: 100%;
+    min-height: 44px;
+  }
+
   .settings-drawer {
     width: 100%;
+  }
+}
+
+@media (hover: none) {
+  .copy-button {
+    opacity: 1;
+    pointer-events: auto;
   }
 }

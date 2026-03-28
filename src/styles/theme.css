@@ -1,22 +1,31 @@
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --color-bg: #f6f7fb;
   --color-text: #1b1b1f;
   --color-panel: #ffffff;
   --color-border: #e2e4ee;
+  --color-primary: #5a7cff;
   --color-accent: #5a7cff;
   --color-muted: #6b7280;
   --color-user: #5a7cff;
   --color-assistant: #edf0ff;
+  --color-backdrop: rgba(12, 18, 28, 0.42);
+  --color-copy-bg: rgba(27, 27, 31, 0.08);
+  --color-copy-bg-active: rgba(90, 124, 255, 0.14);
 }
 
 [data-theme='dark'] {
+  color-scheme: dark;
   --color-bg: #0f1115;
   --color-text: #f2f4f8;
   --color-panel: #171a21;
   --color-border: #2a2f3a;
+  --color-primary: #7aa2ff;
   --color-accent: #7aa2ff;
   --color-muted: #a5adba;
   --color-user: #7aa2ff;
   --color-assistant: #202536;
+  --color-backdrop: rgba(0, 0, 0, 0.56);
+  --color-copy-bg: rgba(255, 255, 255, 0.08);
+  --color-copy-bg-active: rgba(122, 162, 255, 0.18);
 }

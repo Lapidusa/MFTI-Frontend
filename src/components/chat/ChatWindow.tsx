@@ -79,6 +79,15 @@ export function ChatWindow({
     }, delay)
   }
 
+  const handleStop = () => {
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+
+    setIsLoading(false)
+  }
+
   return (
     <section className="chat-window">
       <header className="chat-header">
@@ -95,7 +104,7 @@ export function ChatWindow({
         </button>
       </header>
       <MessageList messages={messages} isTyping={isLoading} endRef={endRef} />
-      <InputArea isLoading={isLoading} onSend={handleSend} />
+      <InputArea isLoading={isLoading} onSend={handleSend} onStop={handleStop} />
     </section>
   )
 }
