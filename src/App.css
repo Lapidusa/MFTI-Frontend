@@ -284,6 +284,7 @@
   border-radius: 16px;
   background: var(--color-assistant);
   position: relative;
+  transition: padding-bottom 0.2s ease;
 }
 
 .message.user .message-bubble {
@@ -371,6 +372,12 @@
 .message.assistant:focus-within .copy-button {
   opacity: 1;
   pointer-events: auto;
+}
+
+.message.assistant:hover .message-bubble,
+.message.assistant:focus-within .message-bubble,
+.copy-button.is-copied {
+  padding-bottom: 42px;
 }
 
 .copy-button.is-copied {
