@@ -2,15 +2,9 @@ import { useEffect } from 'react'
 import { Button } from '../ui/Button'
 import { Slider } from '../ui/Slider'
 import { Toggle } from '../ui/Toggle'
+import type { ChatSettings } from '../../types/chat'
 
-export type SettingsState = {
-  model: 'GigaChat' | 'GigaChat-Plus' | 'GigaChat-Pro' | 'GigaChat-Max'
-  temperature: number
-  topP: number
-  maxTokens: number
-  systemPrompt: string
-  theme: 'light' | 'dark'
-}
+export type SettingsState = ChatSettings
 
 type SettingsPanelProps = {
   isOpen: boolean
