@@ -1,33 +1,13 @@
-import type { Chat } from '../../types/chat'
-import { EmptyState } from '../ui/EmptyState'
+import type { ChatItemData } from '../../data/mockData'
 import { ChatItem } from './ChatItem'
 
 type ChatListProps = {
-  chats: Chat[]
-  activeChatId: string | null
+  chats: ChatItemData[]
+  activeChatId: string
   onSelectChat: (id: string) => void
-  onRenameChat: (id: string, title: string) => void
-  onDeleteChat: (id: string) => void
 }
 
-export function ChatList({
-  chats,
-  activeChatId,
-  onSelectChat,
-  onRenameChat,
-  onDeleteChat,
-}: ChatListProps) {
-  if (chats.length === 0) {
-    return (
-      <div className="chat-list chat-list-empty">
-        <EmptyState
-          title="Чаты не найдены"
-          description="Создайте новый чат или измените поисковый запрос."
-        />
-      </div>
-    )
-  }
-
+export function ChatList({ chats, activeChatId, onSelectChat }: ChatListProps) {
   return (
     <div className="chat-list">
       {chats.map((chat) => (
@@ -36,8 +16,6 @@ export function ChatList({
           chat={chat}
           isActive={chat.id === activeChatId}
           onSelect={() => onSelectChat(chat.id)}
-          onRename={(title) => onRenameChat(chat.id, title)}
-          onDelete={() => onDeleteChat(chat.id)}
         />
       ))}
     </div>

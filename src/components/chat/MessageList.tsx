@@ -1,27 +1,20 @@
 import type { RefObject } from 'react'
-import type { Message } from '../../types/chat'
+import type { MessageData } from '../../data/mockData'
 import { EmptyState } from '../ui/EmptyState'
-import { Message as ChatMessage } from './Message'
+import { Message } from './Message'
 import { TypingIndicator } from './TypingIndicator'
 
 type MessageListProps = {
-  messages: Message[]
+  messages: MessageData[]
   isTyping?: boolean
   endRef: RefObject<HTMLDivElement | null>
 }
 
 export function MessageList({ messages, isTyping, endRef }: MessageListProps) {
-  const visibleMessages = messages.filter(
-    (message): message is Message & { role: 'user' | 'assistant' } => message.role !== 'system',
-  )
-
   if (messages.length === 0) {
     return (
       <div className="message-list empty">
-        <EmptyState
-          title="Диалог пока пуст"
-          description="Отправьте первое сообщение, и название чата сгенерируется автоматически."
-        />
+        <EmptyState />
         <div ref={endRef} />
       </div>
     )
@@ -29,8 +22,8 @@ export function MessageList({ messages, isTyping, endRef }: MessageListProps) {
 
   return (
     <div className="message-list">
-      {visibleMessages.map((message) => (
-        <ChatMessage key={message.id} message={message} variant={message.role} />
+      {messages.map((message) => (
+        <Message key={message.id} message={message} variant={message.role} />
       ))}
       <TypingIndicator isVisible={Boolean(isTyping)} />
       <div ref={endRef} />

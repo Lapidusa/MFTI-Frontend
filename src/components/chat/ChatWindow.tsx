@@ -1,40 +1,92 @@
-import { useEffect, useRef } from 'react'
-import type { Chat } from '../../types/chat'
-import { EmptyState } from '../ui/EmptyState'
-import { ErrorMessage } from '../ui/ErrorMessage'
+import { useEffect, useRef, useState } from 'react'
+import type { MessageData } from '../../data/mockData'
 import { InputArea } from './InputArea'
 import { MessageList } from './MessageList'
 
 type ChatWindowProps = {
-  chat: Chat | null
-  isLoading: boolean
-  error: string | null
-  onSend: (content: string) => void | Promise<void>
-  onStop: () => void
+  chatId: string
+  title: string
+  messages: MessageData[]
+  onMessagesChange: (messages: MessageData[]) => void
   onOpenSidebar: () => void
-  onCreateChat: () => void
   onOpenSettings: () => void
-  onClearError: () => void
 }
 
+const assistantReplies = [
+  'Принял. Могу развить эту мысль и предложить следующий шаг.',
+  'Сообщение получено. Если нужно, продолжу диалог в том же стиле.',
+  'Вижу контекст. Могу ответить подробнее следующим сообщением.',
+]
+
 export function ChatWindow({
-  chat,
-  isLoading,
-  error,
-  onSend,
-  onStop,
+  chatId,
+  title,
+  messages,
+  onMessagesChange,
   onOpenSidebar,
-  onCreateChat,
   onOpenSettings,
-  onClearError,
 }: ChatWindowProps) {
+  const [isLoading, setIsLoading] = useState(false)
   const endRef = useRef<HTMLDivElement | null>(null)
+  const timeoutRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    setIsLoading(false)
+
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+  }, [chatId, title])
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [chat?.id, chat?.messages, isLoading])
+  }, [chatId, messages, isLoading])
 
-  const title = chat?.title ?? 'Чаты'
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handleSend = (content: string) => {
+    const userMessage: MessageData = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content,
+      timestamp: new Date().toISOString(),
+    }
+
+    const nextMessages = [...messages, userMessage]
+    onMessagesChange(nextMessages)
+    setIsLoading(true)
+
+    const delay = 1000 + Math.floor(Math.random() * 1000)
+
+    timeoutRef.current = window.setTimeout(() => {
+      const assistantMessage: MessageData = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: assistantReplies[Math.floor(Math.random() * assistantReplies.length)],
+        timestamp: new Date().toISOString(),
+      }
+
+      onMessagesChange([...nextMessages, assistantMessage])
+      setIsLoading(false)
+      timeoutRef.current = null
+    }, delay)
+  }
+
+  const handleStop = () => {
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+
+    setIsLoading(false)
+  }
 
   return (
     <section className="chat-window">
@@ -51,32 +103,8 @@ export function ChatWindow({
           ⚙
         </button>
       </header>
-
-      {error ? (
-        <div className="chat-error-banner">
-          <ErrorMessage message={error} />
-          <button className="btn secondary" type="button" onClick={onClearError}>
-            Закрыть
-          </button>
-        </div>
-      ) : null}
-
-      {chat ? (
-        <>
-          <MessageList messages={chat.messages} isTyping={isLoading} endRef={endRef} />
-          <InputArea isLoading={isLoading} onSend={onSend} onStop={onStop} />
-        </>
-      ) : (
-        <div className="chat-empty-screen">
-          <EmptyState
-            title="Выберите чат или создайте новый"
-            description="История сохранится в localStorage, а ответы будут приходить из GigaChat API."
-          />
-          <button className="btn primary chat-empty-action" type="button" onClick={onCreateChat}>
-            Создать новый чат
-          </button>
-        </div>
-      )}
+      <MessageList messages={messages} isTyping={isLoading} endRef={endRef} />
+      <InputArea isLoading={isLoading} onSend={handleSend} onStop={handleStop} />
     </section>
   )
 }
