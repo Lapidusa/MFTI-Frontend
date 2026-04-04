@@ -1,10 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import type { MessageData } from '../../data/mockData'
+import hljs from 'highlight.js/lib/core'
+import javascript from 'highlight.js/lib/languages/javascript'
+import typescript from 'highlight.js/lib/languages/typescript'
+import json from 'highlight.js/lib/languages/json'
+import bash from 'highlight.js/lib/languages/bash'
+import type { Message as MessageData, MessageRole } from '../../types/chat'
+
+hljs.registerLanguage('javascript', javascript)
+hljs.registerLanguage('js', javascript)
+hljs.registerLanguage('typescript', typescript)
+hljs.registerLanguage('ts', typescript)
+hljs.registerLanguage('json', json)
+hljs.registerLanguage('bash', bash)
+hljs.registerLanguage('sh', bash)
 
 type MessageProps = {
   message: MessageData
-  variant: 'user' | 'assistant'
+  variant: Extract<MessageRole, 'user' | 'assistant'>
 }
 
 const messageNames: Record<MessageProps['variant'], string> = {
@@ -15,7 +28,7 @@ const messageNames: Record<MessageProps['variant'], string> = {
 export function Message({ message, variant }: MessageProps) {
   const [copied, setCopied] = useState(false)
   const resetTimeoutRef = useRef<number | null>(null)
-  const formattedTime = new Date(message.timestamp).toLocaleTimeString('ru-RU', {
+  const formattedTime = new Date(message.createdAt).toLocaleTimeString('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
   })
@@ -55,7 +68,37 @@ export function Message({ message, variant }: MessageProps) {
       </div>
       <div className="message-bubble">
         <div className="message-content">
-          <ReactMarkdown>{message.content}</ReactMarkdown>
+          <ReactMarkdown
+            components={{
+              code({ className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className ?? '')
+                const code = String(children).replace(/\n$/, '')
+
+                if (!match) {
+                  return (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  )
+                }
+
+                const language = match[1]
+                const highlighted = hljs.getLanguage(language)
+                  ? hljs.highlight(code, { language }).value
+                  : hljs.highlightAuto(code).value
+
+                return (
+                  <code
+                    {...props}
+                    className={`hljs language-${language}`}
+                    dangerouslySetInnerHTML={{ __html: highlighted }}
+                  />
+                )
+              },
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
         </div>
         {variant === 'assistant' ? (
           <button

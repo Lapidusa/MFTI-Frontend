@@ -3,7 +3,7 @@ import type { FormEvent, KeyboardEvent } from 'react'
 
 type InputAreaProps = {
   isLoading: boolean
-  onSend: (value: string) => void
+  onSend: (value: string) => void | Promise<void>
   onStop: () => void
 }
 
