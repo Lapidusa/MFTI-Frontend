@@ -1,15 +1,6 @@
 import { CHAT_STORAGE_KEY, defaultSettings } from './chat-utils'
 import type { Chat, ChatState, Message } from '../types/chat'
-
-const emptyState: ChatState = {
-  chats: [],
-  activeChatId: null,
-  currentMessages: [],
-  isLoading: false,
-  error: null,
-  searchQuery: '',
-  settings: defaultSettings,
-}
+import { emptyChatState } from '../context/chat-reducer'
 
 function isMessage(value: unknown): value is Message {
   if (!value || typeof value !== 'object') return false
@@ -44,7 +35,7 @@ export function loadChatState(): ChatState {
   try {
     const raw = window.localStorage.getItem(CHAT_STORAGE_KEY)
 
-    if (!raw) return emptyState
+    if (!raw) return emptyChatState
 
     const parsed = JSON.parse(raw) as Partial<ChatState>
     const chats = Array.isArray(parsed.chats) ? parsed.chats.filter(isChat) : []
@@ -54,19 +45,17 @@ export function loadChatState(): ChatState {
         : null
 
     return {
+      ...emptyChatState,
       chats,
       activeChatId,
       currentMessages: chats.find((chat) => chat.id === activeChatId)?.messages ?? [],
-      isLoading: false,
-      error: null,
-      searchQuery: '',
       settings: {
         ...defaultSettings,
         ...(parsed.settings ?? {}),
       },
     }
   } catch {
-    return emptyState
+    return emptyChatState
   }
 }
 
