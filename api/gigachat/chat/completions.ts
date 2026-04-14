@@ -9,11 +9,37 @@ type ApiError = {
 
 const oauthUrl = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth'
 const chatUrl = 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions'
+const requestTimeoutMs = 20_000
 
 let tokenCache: { value: string; expiresAt: number } | null = null
 
 function getErrorMessage(fallback: string, data?: ApiError) {
   return data?.message?.trim() || fallback
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMessage: string,
+  timeoutMs = requestTimeoutMs,
+) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error(timeoutMessage)
+    }
+
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 async function getAccessToken() {
@@ -30,16 +56,20 @@ async function getAccessToken() {
     throw new Error('Server env GIGACHAT_AUTH_KEY is not configured.')
   }
 
-  const response = await fetch(oauthUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Accept: 'application/json',
-      RqUID: crypto.randomUUID(),
-      Authorization: `Basic ${authKey}`,
+  const response = await fetchWithTimeout(
+    oauthUrl,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+        RqUID: crypto.randomUUID(),
+        Authorization: `Basic ${authKey}`,
+      },
+      body: new URLSearchParams({ scope }),
     },
-    body: new URLSearchParams({ scope }),
-  })
+    'Timeout while obtaining GigaChat access token.',
+  )
 
   if (!response.ok) {
     let errorData: ApiError | undefined
@@ -69,18 +99,28 @@ export default async function handler(request: Request) {
 
   try {
     const accessToken = await getAccessToken()
-    const body = await request.text()
-    const upstream = await fetch(chatUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: request.headers.get('accept') ?? 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body,
-    })
+    const payload = (await request.json()) as Record<string, unknown>
 
-    return new Response(upstream.body, {
+    const upstream = await fetchWithTimeout(
+      chatUrl,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          ...payload,
+          stream: false,
+        }),
+      },
+      'Timeout while requesting GigaChat completion.',
+    )
+
+    const responseText = await upstream.text()
+
+    return new Response(responseText, {
       status: upstream.status,
       headers: {
         'Content-Type': upstream.headers.get('content-type') ?? 'application/json',

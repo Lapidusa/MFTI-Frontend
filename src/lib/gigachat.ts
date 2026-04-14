@@ -103,7 +103,7 @@ export async function requestChatCompletion(
   }
 
   if (!import.meta.env.DEV) {
-    return requestServerCompletion(payload, onChunk, signal)
+    return requestServerCompletion(payload, signal)
   }
 
   const accessToken = await getAccessToken(signal)
@@ -141,14 +141,13 @@ export async function requestChatCompletion(
 
 async function requestServerCompletion(
   payload: Record<string, unknown>,
-  onChunk?: (content: string) => void,
   signal?: AbortSignal,
 ) {
   const response = await fetch(chatUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
+      Accept: 'application/json',
     },
     body: JSON.stringify(payload),
     signal,
@@ -164,12 +163,6 @@ async function requestServerCompletion(
     }
 
     throw new Error(getErrorMessage('Ошибка при запросе к серверному GigaChat proxy.', errorData))
-  }
-
-  const contentType = response.headers.get('content-type') ?? ''
-
-  if (response.body && contentType.includes('text/event-stream')) {
-    return readStreamedCompletion(response.body, onChunk, signal)
   }
 
   const data = (await response.json()) as CompletionResponse
