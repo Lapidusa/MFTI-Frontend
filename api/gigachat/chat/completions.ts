@@ -9,7 +9,8 @@ type ApiError = {
 
 const oauthUrl = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth'
 const chatUrl = 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions'
-const requestTimeoutMs = 20_000
+const oauthTimeoutMs = 2_500
+const completionTimeoutMs = 6_000
 
 let tokenCache: { value: string; expiresAt: number } | null = null
 
@@ -21,7 +22,7 @@ async function fetchWithTimeout(
   url: string,
   init: RequestInit,
   timeoutMessage: string,
-  timeoutMs = requestTimeoutMs,
+  timeoutMs: number,
 ) {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
@@ -69,6 +70,7 @@ async function getAccessToken() {
       body: new URLSearchParams({ scope }),
     },
     'Timeout while obtaining GigaChat access token.',
+    oauthTimeoutMs,
   )
 
   if (!response.ok) {
@@ -116,6 +118,7 @@ export default async function handler(request: Request) {
         }),
       },
       'Timeout while requesting GigaChat completion.',
+      completionTimeoutMs,
     )
 
     const responseText = await upstream.text()
