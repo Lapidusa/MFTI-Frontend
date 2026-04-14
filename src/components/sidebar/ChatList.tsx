@@ -5,9 +5,9 @@ import { ChatItem } from './ChatItem'
 type ChatListProps = {
   chats: Chat[]
   activeChatId: string | null
-  onSelectChat: (id: string) => void
-  onRenameChat: (id: string, title: string) => void
-  onDeleteChat: (id: string) => void
+  onSelectChat: (chatId: string) => void
+  onRenameChat: (chatId: string, title: string) => void
+  onDeleteChat: (chatId: string) => void
 }
 
 export function ChatList({
@@ -35,9 +35,9 @@ export function ChatList({
           key={chat.id}
           chat={chat}
           isActive={chat.id === activeChatId}
-          onSelect={() => onSelectChat(chat.id)}
-          onRename={(title) => onRenameChat(chat.id, title)}
-          onDelete={() => onDeleteChat(chat.id)}
+          onSelectChat={onSelectChat}
+          onRenameChat={onRenameChat}
+          onDeleteChat={onDeleteChat}
         />
       ))}
     </div>

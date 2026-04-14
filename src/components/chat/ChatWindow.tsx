@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Chat } from '../../types/chat'
 import { EmptyState } from '../ui/EmptyState'
 import { ErrorMessage } from '../ui/ErrorMessage'
+import { ErrorBoundary } from '../ui/ErrorBoundary'
 import { InputArea } from './InputArea'
 import { MessageList } from './MessageList'
 
@@ -29,10 +30,16 @@ export function ChatWindow({
   onClearError,
 }: ChatWindowProps) {
   const endRef = useRef<HTMLDivElement | null>(null)
+  const [messageBoundaryKey, setMessageBoundaryKey] = useState(0)
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chat?.id, chat?.messages, isLoading])
+
+  const handleRetryMessages = useCallback(() => {
+    setMessageBoundaryKey((current) => current + 1)
+    onClearError()
+  }, [onClearError])
 
   const title = chat?.title ?? 'Чаты'
 
@@ -55,15 +62,22 @@ export function ChatWindow({
       {error ? (
         <div className="chat-error-banner">
           <ErrorMessage message={error} />
-          <button className="btn secondary" type="button" onClick={onClearError}>
-            Закрыть
-          </button>
+          <div className="chat-error-actions">
+            <button className="btn secondary" type="button" onClick={handleRetryMessages}>
+              Повторить
+            </button>
+            <button className="btn secondary" type="button" onClick={onClearError}>
+              Закрыть
+            </button>
+          </div>
         </div>
       ) : null}
 
       {chat ? (
         <>
-          <MessageList messages={chat.messages} isTyping={isLoading} endRef={endRef} />
+          <ErrorBoundary key={messageBoundaryKey} onRetry={handleRetryMessages}>
+            <MessageList messages={chat.messages} isTyping={isLoading} endRef={endRef} />
+          </ErrorBoundary>
           <InputArea isLoading={isLoading} onSend={onSend} onStop={onStop} />
         </>
       ) : (

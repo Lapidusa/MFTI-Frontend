@@ -1,20 +1,27 @@
-import { useState } from 'react'
+import { memo, useCallback, useState } from 'react'
 import { formatChatDate, getLastMessagePreview } from '../../lib/chat-utils'
 import type { Chat } from '../../types/chat'
 
 type ChatItemProps = {
   chat: Chat
   isActive: boolean
-  onSelect: () => void
-  onRename: (title: string) => void
-  onDelete: () => void
+  onSelectChat: (chatId: string) => void
+  onRenameChat: (chatId: string, title: string) => void
+  onDeleteChat: (chatId: string) => void
 }
 
-export function ChatItem({ chat, isActive, onSelect, onRename, onDelete }: ChatItemProps) {
+function ChatItemComponent({
+  chat,
+  isActive,
+  onSelectChat,
+  onRenameChat,
+  onDeleteChat,
+}: ChatItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draftTitle, setDraftTitle] = useState(chat.title)
+  const lastMessagePreview = getLastMessagePreview(chat)
 
-  const handleRenameSubmit = () => {
+  const handleRenameSubmit = useCallback(() => {
     const nextTitle = draftTitle.trim()
 
     if (!nextTitle) {
@@ -23,9 +30,17 @@ export function ChatItem({ chat, isActive, onSelect, onRename, onDelete }: ChatI
       return
     }
 
-    onRename(nextTitle)
+    onRenameChat(chat.id, nextTitle)
     setIsEditing(false)
-  }
+  }, [chat.id, chat.title, draftTitle, onRenameChat])
+
+  const handleSelect = useCallback(() => {
+    onSelectChat(chat.id)
+  }, [chat.id, onSelectChat])
+
+  const handleDelete = useCallback(() => {
+    onDeleteChat(chat.id)
+  }, [chat.id, onDeleteChat])
 
   return (
     <div className={`chat-item ${isActive ? 'is-active' : ''}`}>
@@ -49,18 +64,18 @@ export function ChatItem({ chat, isActive, onSelect, onRename, onDelete }: ChatI
               }
             }}
           />
-          <div className="chat-item-preview" title={getLastMessagePreview(chat)}>
-            {getLastMessagePreview(chat) || 'Сообщений пока нет'}
+          <div className="chat-item-preview" title={lastMessagePreview}>
+            {lastMessagePreview || 'Сообщений пока нет'}
           </div>
           <div className="chat-item-date">{formatChatDate(chat.updatedAt)}</div>
         </div>
       ) : (
-        <button type="button" className="chat-item-main" onClick={onSelect}>
+        <button type="button" className="chat-item-main" onClick={handleSelect}>
           <div className="chat-item-title" title={chat.title}>
             {chat.title}
           </div>
-          <div className="chat-item-preview" title={getLastMessagePreview(chat)}>
-            {getLastMessagePreview(chat) || 'Сообщений пока нет'}
+          <div className="chat-item-preview" title={lastMessagePreview}>
+            {lastMessagePreview || 'Сообщений пока нет'}
           </div>
           <div className="chat-item-date">{formatChatDate(chat.updatedAt)}</div>
         </button>
@@ -81,7 +96,7 @@ export function ChatItem({ chat, isActive, onSelect, onRename, onDelete }: ChatI
           type="button"
           className="icon-button"
           aria-label="Удалить чат"
-          onClick={onDelete}
+          onClick={handleDelete}
         >
           🗑
         </button>
@@ -89,3 +104,5 @@ export function ChatItem({ chat, isActive, onSelect, onRename, onDelete }: ChatI
     </div>
   )
 }
+
+export const ChatItem = memo(ChatItemComponent)

@@ -21,7 +21,6 @@ type ApiError = {
   message?: string
 }
 
-const authKey = import.meta.env.VITE_GIGACHAT_AUTH_KEY
 const scope = import.meta.env.VITE_GIGACHAT_SCOPE ?? 'GIGACHAT_API_PERS'
 const oauthUrl = import.meta.env.VITE_GIGACHAT_OAUTH_URL ?? '/api/gigachat/oauth'
 const chatUrl = import.meta.env.VITE_GIGACHAT_CHAT_URL ?? '/api/gigachat/chat/completions'
@@ -38,6 +37,8 @@ async function getAccessToken(signal?: AbortSignal) {
   if (tokenCache && tokenCache.expiresAt - 60 > nowInSeconds) {
     return tokenCache.value
   }
+
+  const authKey = import.meta.env.VITE_GIGACHAT_AUTH_KEY
 
   if (!authKey) {
     throw new Error('Не настроен VITE_GIGACHAT_AUTH_KEY в .env.')
@@ -82,7 +83,6 @@ export async function requestChatCompletion(
   onChunk?: (content: string) => void,
   signal?: AbortSignal,
 ) {
-  const accessToken = await getAccessToken(signal)
   const payload = {
     model: settings.model,
     messages: [
@@ -102,6 +102,11 @@ export async function requestChatCompletion(
     update_interval: 0,
   }
 
+  if (!import.meta.env.DEV) {
+    return requestServerCompletion(payload, onChunk, signal)
+  }
+
+  const accessToken = await getAccessToken(signal)
   const response = await fetch(chatUrl, {
     method: 'POST',
     headers: {
@@ -132,6 +137,49 @@ export async function requestChatCompletion(
   }
 
   return requestRestCompletion(accessToken, payload, signal)
+}
+
+async function requestServerCompletion(
+  payload: Record<string, unknown>,
+  onChunk?: (content: string) => void,
+  signal?: AbortSignal,
+) {
+  const response = await fetch(chatUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+    },
+    body: JSON.stringify(payload),
+    signal,
+  })
+
+  if (!response.ok) {
+    let errorData: ApiError | undefined
+
+    try {
+      errorData = (await response.json()) as ApiError
+    } catch {
+      errorData = undefined
+    }
+
+    throw new Error(getErrorMessage('Ошибка при запросе к серверному GigaChat proxy.', errorData))
+  }
+
+  const contentType = response.headers.get('content-type') ?? ''
+
+  if (response.body && contentType.includes('text/event-stream')) {
+    return readStreamedCompletion(response.body, onChunk, signal)
+  }
+
+  const data = (await response.json()) as CompletionResponse
+  const content = data.choices?.[0]?.message?.content?.trim()
+
+  if (!content) {
+    throw new Error('GigaChat proxy вернул пустой ответ.')
+  }
+
+  return content
 }
 
 async function requestRestCompletion(

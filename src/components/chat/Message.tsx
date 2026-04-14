@@ -1,19 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import hljs from 'highlight.js/lib/core'
-import javascript from 'highlight.js/lib/languages/javascript'
-import typescript from 'highlight.js/lib/languages/typescript'
-import json from 'highlight.js/lib/languages/json'
-import bash from 'highlight.js/lib/languages/bash'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { Message as MessageData, MessageRole } from '../../types/chat'
 
-hljs.registerLanguage('javascript', javascript)
-hljs.registerLanguage('js', javascript)
-hljs.registerLanguage('typescript', typescript)
-hljs.registerLanguage('ts', typescript)
-hljs.registerLanguage('json', json)
-hljs.registerLanguage('bash', bash)
-hljs.registerLanguage('sh', bash)
+const RichMessageContent = lazy(() => import('./RichMessageContent'))
 
 type MessageProps = {
   message: MessageData
@@ -68,37 +56,13 @@ export function Message({ message, variant }: MessageProps) {
       </div>
       <div className="message-bubble">
         <div className="message-content">
-          <ReactMarkdown
-            components={{
-              code({ className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className ?? '')
-                const code = String(children).replace(/\n$/, '')
-
-                if (!match) {
-                  return (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  )
-                }
-
-                const language = match[1]
-                const highlighted = hljs.getLanguage(language)
-                  ? hljs.highlight(code, { language }).value
-                  : hljs.highlightAuto(code).value
-
-                return (
-                  <code
-                    {...props}
-                    className={`hljs language-${language}`}
-                    dangerouslySetInnerHTML={{ __html: highlighted }}
-                  />
-                )
-              },
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
+          {variant === 'assistant' ? (
+            <Suspense fallback={<p>{message.content}</p>}>
+              <RichMessageContent content={message.content} />
+            </Suspense>
+          ) : (
+            <p>{message.content}</p>
+          )}
         </div>
         {variant === 'assistant' ? (
           <button

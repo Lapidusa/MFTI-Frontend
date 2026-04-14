@@ -1,106 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useChatContext } from '../../context/useChatContext'
-import type { Chat } from '../../types/chat'
-import { ChatWindow } from '../chat/ChatWindow'
-import { SettingsPanel } from '../settings/SettingsPanel'
-import { Sidebar } from '../sidebar/Sidebar'
+const Sidebar = lazy(() => import('../sidebar/Sidebar').then((module) => ({ default: module.Sidebar })))
+const SettingsPanel = lazy(() =>
+  import('../settings/SettingsPanel').then((module) => ({ default: module.SettingsPanel })),
+)
+const EmptyChatRouteView = lazy(() => import('../../routes/EmptyChatRouteView'))
+const ChatRouteView = lazy(() => import('../../routes/ChatRouteView'))
 
-function EmptyChatRoute({
-  activeChatId,
-  onCreateChat,
-  onOpenSidebar,
-  onOpenSettings,
-  onClearError,
-}: {
-  activeChatId: string | null
-  onCreateChat: () => void
-  onOpenSidebar: () => void
-  onOpenSettings: () => void
-  onClearError: () => void
-}) {
-  const { setActiveChat, state } = useChatContext()
-
-  useEffect(() => {
-    setActiveChat(null)
-  }, [setActiveChat])
-
-  if (activeChatId) {
-    return <Navigate to={`/chat/${activeChatId}`} replace />
-  }
-
-  return (
-    <ChatWindow
-      chat={null}
-      isLoading={state.isLoading}
-      error={state.error}
-      onSend={async () => {}}
-      onStop={() => {}}
-      onOpenSidebar={onOpenSidebar}
-      onCreateChat={onCreateChat}
-      onOpenSettings={onOpenSettings}
-      onClearError={onClearError}
-    />
-  )
-}
-
-function ChatRoute({
-  chats,
-  isLoading,
-  error,
-  onSend,
-  onStop,
-  onOpenSidebar,
-  onCreateChat,
-  onOpenSettings,
-  onClearError,
-}: {
-  chats: Chat[]
-  isLoading: boolean
-  error: string | null
-  onSend: (chatId: string, content: string) => void | Promise<void>
-  onStop: () => void
-  onOpenSidebar: () => void
-  onCreateChat: () => void
-  onOpenSettings: () => void
-  onClearError: () => void
-}) {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const { setActiveChat } = useChatContext()
-  const chat = chats.find((item) => item.id === id) ?? null
-
-  useEffect(() => {
-    if (!id) {
-      setActiveChat(null)
-      return
-    }
-
-    if (!chat) {
-      navigate('/', { replace: true })
-      return
-    }
-
-    setActiveChat(id)
-  }, [chat, id, navigate, setActiveChat])
-
-  if (!chat) {
-    return null
-  }
-
-  return (
-    <ChatWindow
-      chat={chat}
-      isLoading={isLoading}
-      error={error}
-      onSend={(content) => onSend(chat.id, content)}
-      onStop={onStop}
-      onOpenSidebar={onOpenSidebar}
-      onCreateChat={onCreateChat}
-      onOpenSettings={onOpenSettings}
-      onClearError={onClearError}
-    />
-  )
+function SectionFallback({ label }: { label: string }) {
+  return <div className="section-fallback">{label}</div>
 }
 
 export function AppLayout() {
@@ -128,81 +37,107 @@ export function AppLayout() {
     return match?.[1] ?? null
   }, [location.pathname])
 
-  const handleCreateChat = () => {
+  const handleCreateChat = useCallback(() => {
     const chatId = createChat()
     navigate(`/chat/${chatId}`)
     setIsSidebarOpen(false)
-  }
+  }, [createChat, navigate])
 
-  const handleSelectChat = (chatId: string) => {
+  const handleSelectChat = useCallback((chatId: string) => {
     navigate(`/chat/${chatId}`)
     setIsSidebarOpen(false)
-  }
+  }, [navigate])
 
-  const handleDeleteChat = (chatId: string) => {
+  const handleDeleteChat = useCallback((chatId: string) => {
     const remainingChats = state.chats.filter((chat) => chat.id !== chatId)
     deleteChat(chatId)
 
     if (activeChatId === chatId) {
       navigate(remainingChats[0] ? `/chat/${remainingChats[0].id}` : '/')
     }
-  }
+  }, [activeChatId, deleteChat, navigate, state.chats])
+
+  const openSidebar = useCallback(() => {
+    setIsSidebarOpen(true)
+  }, [])
+
+  const closeSidebar = useCallback(() => {
+    setIsSidebarOpen(false)
+  }, [])
+
+  const openSettings = useCallback(() => {
+    setIsSettingsOpen(true)
+  }, [])
+
+  const closeSettings = useCallback(() => {
+    setIsSettingsOpen(false)
+  }, [])
+
+  const saveSettings = useCallback(() => {
+    setIsSettingsOpen(false)
+  }, [])
 
   return (
     <div className="app-layout">
-      <Sidebar
-        chats={filteredChats}
-        activeChatId={activeChatId}
-        searchQuery={state.searchQuery}
-        isOpen={isSidebarOpen}
-        onCreateChat={handleCreateChat}
-        onSelectChat={handleSelectChat}
-        onRenameChat={renameChat}
-        onDeleteChat={handleDeleteChat}
-        onSearch={setSearchQuery}
-        onClose={() => setIsSidebarOpen(false)}
-      />
-
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <EmptyChatRoute
-              activeChatId={state.activeChatId}
-              onCreateChat={handleCreateChat}
-              onOpenSidebar={() => setIsSidebarOpen(true)}
-              onOpenSettings={() => setIsSettingsOpen(true)}
-              onClearError={clearError}
-            />
-          }
+      <Suspense fallback={<SectionFallback label="Загружаем список чатов..." />}>
+        <Sidebar
+          chats={filteredChats}
+          activeChatId={activeChatId}
+          searchQuery={state.searchQuery}
+          isOpen={isSidebarOpen}
+          onCreateChat={handleCreateChat}
+          onSelectChat={handleSelectChat}
+          onRenameChat={renameChat}
+          onDeleteChat={handleDeleteChat}
+          onSearch={setSearchQuery}
+          onClose={closeSidebar}
         />
-        <Route
-          path="/chat/:id"
-          element={
-            <ChatRoute
-              chats={state.chats}
-              isLoading={state.isLoading}
-              error={state.error}
-              onSend={sendMessage}
-              onStop={stopGeneration}
-              onOpenSidebar={() => setIsSidebarOpen(true)}
-              onCreateChat={handleCreateChat}
-              onOpenSettings={() => setIsSettingsOpen(true)}
-              onClearError={clearError}
-            />
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      </Suspense>
 
-      <SettingsPanel
-        isOpen={isSettingsOpen}
-        settings={state.settings}
-        onClose={() => setIsSettingsOpen(false)}
-        onChange={updateSettings}
-        onReset={resetSettings}
-        onSave={() => setIsSettingsOpen(false)}
-      />
+      <Suspense fallback={<SectionFallback label="Загружаем чат..." />}>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <EmptyChatRouteView
+                activeChatId={state.activeChatId}
+                onCreateChat={handleCreateChat}
+                onOpenSidebar={openSidebar}
+                onOpenSettings={openSettings}
+                onClearError={clearError}
+              />
+            }
+          />
+          <Route
+            path="/chat/:id"
+            element={
+              <ChatRouteView
+                chats={state.chats}
+                isLoading={state.isLoading}
+                error={state.error}
+                onSend={sendMessage}
+                onStop={stopGeneration}
+                onOpenSidebar={openSidebar}
+                onCreateChat={handleCreateChat}
+                onOpenSettings={openSettings}
+                onClearError={clearError}
+              />
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <SettingsPanel
+          isOpen={isSettingsOpen}
+          settings={state.settings}
+          onClose={closeSettings}
+          onChange={updateSettings}
+          onReset={resetSettings}
+          onSave={saveSettings}
+        />
+      </Suspense>
     </div>
   )
 }

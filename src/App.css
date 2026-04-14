@@ -703,6 +703,33 @@
   padding: 12px 24px 0;
 }
 
+.chat-error-actions {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.message-error-fallback,
+.section-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+}
+
+.message-error-fallback {
+  flex: 1;
+  flex-direction: column;
+  text-align: center;
+}
+
+.section-fallback {
+  min-height: 100vh;
+  min-height: 100dvh;
+  color: var(--color-muted);
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;
