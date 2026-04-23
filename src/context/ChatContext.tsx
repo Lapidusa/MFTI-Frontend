@@ -41,6 +41,33 @@ function getLatestAssistantMessage(chat: Chat | null | undefined) {
   return [...chat.messages].reverse().find((message) => message.role === 'assistant') ?? null
 }
 
+function removeMessageFromState(state: ChatState, chatId: string, messageId: string): ChatState {
+  const chats = state.chats.map((chat) => {
+    if (chat.id !== chatId) return chat
+
+    return {
+      ...chat,
+      messages: chat.messages.filter((message) => message.id !== messageId),
+    }
+  })
+
+  return {
+    ...state,
+    chats,
+    currentMessages: chats.find((chat) => chat.id === state.activeChatId)?.messages ?? [],
+  }
+}
+
+function buildRequestMessages(chat: Chat, nextUserMessage: Chat['messages'][number]) {
+  const messages = [...chat.messages]
+
+  while (messages.at(-1)?.role === 'user') {
+    messages.pop()
+  }
+
+  return [...messages, nextUserMessage]
+}
+
 async function uploadMessageAttachments(attachments: PendingAttachment[], signal?: AbortSignal) {
   const uploadedAttachments: ChatAttachment[] = []
 
@@ -65,6 +92,7 @@ export function ChatProvider({ children }: PropsWithChildren) {
   const stateRef = useRef(state)
   const abortControllerRef = useRef<AbortController | null>(null)
   const activeRequestIdRef = useRef(0)
+  const activeAssistantMessageRef = useRef<{ chatId: string; messageId: string } | null>(null)
 
   useEffect(() => {
     stateRef.current = state
@@ -116,6 +144,24 @@ export function ChatProvider({ children }: PropsWithChildren) {
     activeRequestIdRef.current += 1
     abortControllerRef.current?.abort()
     abortControllerRef.current = null
+
+    if (activeAssistantMessageRef.current) {
+      stateRef.current = removeMessageFromState(
+        stateRef.current,
+        activeAssistantMessageRef.current.chatId,
+        activeAssistantMessageRef.current.messageId,
+      )
+
+      dispatch({
+        type: 'chats/deleteMessage',
+        payload: {
+          chatId: activeAssistantMessageRef.current.chatId,
+          messageId: activeAssistantMessageRef.current.messageId,
+        },
+      })
+      activeAssistantMessageRef.current = null
+    }
+
     dispatch({ type: 'ui/setLoading', payload: { value: false } })
   }, [])
 
@@ -154,8 +200,9 @@ export function ChatProvider({ children }: PropsWithChildren) {
 
       dispatch({ type: 'chats/addMessage', payload: { chatId, message: userMessage, title } })
 
-      const nextMessages = [...chat.messages, userMessage]
+      const nextMessages = buildRequestMessages(chat, userMessage)
       const assistantMessage = createMessage(chatId, 'assistant', '')
+      activeAssistantMessageRef.current = { chatId, messageId: assistantMessage.id }
 
       dispatch({
         type: 'chats/addMessage',
@@ -209,6 +256,7 @@ export function ChatProvider({ children }: PropsWithChildren) {
       }
 
       if (error instanceof DOMException && error.name === 'AbortError') {
+        activeAssistantMessageRef.current = null
         return
       }
 
@@ -216,6 +264,7 @@ export function ChatProvider({ children }: PropsWithChildren) {
       dispatch({ type: 'ui/setError', payload: { value: message } })
     } finally {
       if (activeRequestIdRef.current === requestId) {
+        activeAssistantMessageRef.current = null
         abortControllerRef.current = null
         dispatch({ type: 'ui/setLoading', payload: { value: false } })
       }
