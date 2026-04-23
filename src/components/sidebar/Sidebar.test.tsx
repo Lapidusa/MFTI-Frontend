@@ -11,7 +11,15 @@ const chats: Chat[] = [
     title: 'React chat',
     createdAt: '2026-04-12T09:00:00.000Z',
     updatedAt: '2026-04-12T10:00:00.000Z',
-    messages: [],
+    messages: [
+      {
+        id: 'message-1',
+        chatId: 'chat-1',
+        role: 'user',
+        content: 'Hooks and reducers',
+        createdAt: '2026-04-12T09:30:00.000Z',
+      },
+    ],
   },
   {
     id: 'chat-2',
@@ -27,7 +35,7 @@ describe('Sidebar', () => {
     vi.stubGlobal('confirm', vi.fn())
   })
 
-  it('filters chats by search query', async () => {
+  it('filters chats by search query', () => {
     const onSearch = vi.fn()
     const { rerender } = render(
       <Sidebar
@@ -45,16 +53,16 @@ describe('Sidebar', () => {
     )
 
     fireEvent.change(screen.getByPlaceholderText('Поиск по чатам'), {
-      target: { value: 'react' },
+      target: { value: 'hooks' },
     })
 
-    expect(onSearch).toHaveBeenLastCalledWith('react')
+    expect(onSearch).toHaveBeenLastCalledWith('hooks')
 
     rerender(
       <Sidebar
-        chats={filterChats(chats, 'react')}
+        chats={filterChats(chats, 'hooks')}
         activeChatId={null}
-        searchQuery="react"
+        searchQuery="hooks"
         isOpen
         onCreateChat={vi.fn()}
         onSelectChat={vi.fn()}

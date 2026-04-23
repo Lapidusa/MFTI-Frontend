@@ -4,12 +4,31 @@ export type ThemeMode = 'light' | 'dark'
 
 export type ModelName = 'GigaChat' | 'GigaChat-Plus' | 'GigaChat-Pro' | 'GigaChat-Max'
 
+export type ChatAttachment = {
+  id: string
+  fileId?: string
+  name: string
+  mimeType: string
+  size: number
+  previewUrl?: string
+}
+
+export type PendingAttachment = {
+  id: string
+  file: File
+  name: string
+  mimeType: string
+  size: number
+  previewUrl?: string
+}
+
 export type Message = {
   id: string
   chatId: string
   role: MessageRole
   content: string
   createdAt: string
+  attachments?: ChatAttachment[]
 }
 
 export type Chat = {
@@ -25,6 +44,7 @@ export type ChatSettings = {
   temperature: number
   topP: number
   maxTokens: number
+  repetitionPenalty: number
   systemPrompt: string
   theme: ThemeMode
 }

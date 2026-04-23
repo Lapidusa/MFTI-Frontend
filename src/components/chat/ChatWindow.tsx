@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Chat } from '../../types/chat'
+import type { Chat, PendingAttachment } from '../../types/chat'
 import { EmptyState } from '../ui/EmptyState'
 import { ErrorMessage } from '../ui/ErrorMessage'
 import { ErrorBoundary } from '../ui/ErrorBoundary'
@@ -10,7 +10,7 @@ type ChatWindowProps = {
   chat: Chat | null
   isLoading: boolean
   error: string | null
-  onSend: (content: string) => void | Promise<void>
+  onSend: (payload: { value: string; attachments: PendingAttachment[] }) => void | Promise<void>
   onStop: () => void
   onOpenSidebar: () => void
   onCreateChat: () => void
@@ -46,7 +46,7 @@ export function ChatWindow({
   return (
     <section className="chat-window">
       <header className="chat-header">
-        <button className="burger-button" type="button" onClick={onOpenSidebar}>
+        <button className="burger-button" type="button" onClick={onOpenSidebar} aria-label="Открыть чаты">
           ≡
         </button>
         <div className="chat-title">{title}</div>
@@ -54,6 +54,7 @@ export function ChatWindow({
           className="icon-button settings-button"
           type="button"
           onClick={onOpenSettings}
+          aria-label="Открыть настройки"
         >
           ⚙
         </button>

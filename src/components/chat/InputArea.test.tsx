@@ -13,7 +13,10 @@ describe('InputArea', () => {
     await user.type(screen.getByPlaceholderText('Введите сообщение'), '  Привет, мир  ')
     await user.click(screen.getByRole('button', { name: 'Отправить' }))
 
-    expect(onSend).toHaveBeenCalledWith('Привет, мир')
+    expect(onSend).toHaveBeenCalledWith({
+      value: 'Привет, мир',
+      attachments: [],
+    })
     expect(screen.getByPlaceholderText('Введите сообщение')).toHaveValue('')
   })
 
@@ -25,7 +28,10 @@ describe('InputArea', () => {
 
     await user.type(screen.getByPlaceholderText('Введите сообщение'), 'Тест{enter}')
 
-    expect(onSend).toHaveBeenCalledWith('Тест')
+    expect(onSend).toHaveBeenCalledWith({
+      value: 'Тест',
+      attachments: [],
+    })
   })
 
   it('disables submit button when textarea is empty', () => {

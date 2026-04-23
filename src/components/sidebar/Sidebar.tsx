@@ -37,8 +37,8 @@ export function Sidebar({
             </span>
             Новый чат
           </button>
-          <button className="sidebar-close" type="button" onClick={onClose}>
-            ✕
+          <button className="sidebar-close" type="button" onClick={onClose} aria-label="Закрыть панель">
+            ×
           </button>
         </div>
         <SearchInput value={searchQuery} onChange={onSearch} />

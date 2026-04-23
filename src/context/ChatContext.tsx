@@ -8,11 +8,16 @@ import {
   generateChatTitle,
   shouldAutoRenameChat,
 } from '../lib/chat-utils'
-import { requestChatCompletion } from '../lib/gigachat'
+import { requestChatCompletion, uploadAttachment } from '../lib/gigachat'
 import { loadChatState, saveChatState } from '../lib/storage'
-import type { Chat, ChatSettings, ChatState } from '../types/chat'
+import type { Chat, ChatAttachment, ChatSettings, ChatState, PendingAttachment } from '../types/chat'
 import { ChatContext } from './chat-context-instance'
 import { chatReducer } from './chat-reducer'
+
+export type SendMessagePayload = {
+  content: string
+  attachments?: PendingAttachment[]
+}
 
 export type ChatContextValue = {
   state: ChatState
@@ -26,14 +31,40 @@ export type ChatContextValue = {
   updateSettings: (next: ChatSettings) => void
   resetSettings: () => void
   clearError: () => void
-  sendMessage: (chatId: string, content: string) => Promise<void>
+  sendMessage: (chatId: string, payload: SendMessagePayload) => Promise<void>
   stopGeneration: () => void
+}
+
+function getLatestAssistantMessage(chat: Chat | null | undefined) {
+  if (!chat) return null
+
+  return [...chat.messages].reverse().find((message) => message.role === 'assistant') ?? null
+}
+
+async function uploadMessageAttachments(attachments: PendingAttachment[], signal?: AbortSignal) {
+  const uploadedAttachments: ChatAttachment[] = []
+
+  for (const attachment of attachments) {
+    const fileId = await uploadAttachment(attachment, signal)
+
+    uploadedAttachments.push({
+      id: attachment.id,
+      fileId,
+      name: attachment.name,
+      mimeType: attachment.mimeType,
+      size: attachment.size,
+      previewUrl: attachment.previewUrl,
+    })
+  }
+
+  return uploadedAttachments
 }
 
 export function ChatProvider({ children }: PropsWithChildren) {
   const [state, dispatch] = useReducer(chatReducer, undefined, () => loadChatState())
   const stateRef = useRef(state)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const activeRequestIdRef = useRef(0)
 
   useEffect(() => {
     stateRef.current = state
@@ -82,48 +113,66 @@ export function ChatProvider({ children }: PropsWithChildren) {
   }, [])
 
   const stopGeneration = useCallback(() => {
+    activeRequestIdRef.current += 1
     abortControllerRef.current?.abort()
     abortControllerRef.current = null
     dispatch({ type: 'ui/setLoading', payload: { value: false } })
   }, [])
 
-  const sendMessage = useCallback(async (chatId: string, content: string) => {
+  const sendMessage = useCallback(async (chatId: string, payload: SendMessagePayload) => {
     const currentState = stateRef.current
     const chat = currentState.chats.find((item) => item.id === chatId)
 
     if (!chat) return
 
-    const trimmedContent = content.trim()
+    const trimmedContent = payload.content.trim()
+    const pendingAttachments = payload.attachments ?? []
 
-    if (!trimmedContent) return
+    if (!trimmedContent && pendingAttachments.length === 0) return
 
-    const userMessage = createMessage(chatId, 'user', trimmedContent)
-    const title = shouldAutoRenameChat(chat)
-      ? generateChatTitle(trimmedContent, chat.title)
-      : undefined
-
-    dispatch({ type: 'chats/addMessage', payload: { chatId, message: userMessage, title } })
     dispatch({ type: 'ui/setLoading', payload: { value: true } })
     dispatch({ type: 'ui/setError', payload: { value: null } })
 
-    const nextMessages = [...chat.messages, userMessage]
     const controller = new AbortController()
+    const requestId = activeRequestIdRef.current + 1
+    activeRequestIdRef.current = requestId
     abortControllerRef.current = controller
-    const assistantMessage = createMessage(chatId, 'assistant', '')
-
-    dispatch({
-      type: 'chats/addMessage',
-      payload: {
-        chatId,
-        message: assistantMessage,
-      },
-    })
 
     try {
+      const uploadedAttachments = pendingAttachments.length
+        ? await uploadMessageAttachments(pendingAttachments, controller.signal)
+        : undefined
+
+      const userMessage = {
+        ...createMessage(chatId, 'user', trimmedContent),
+        ...(uploadedAttachments?.length ? { attachments: uploadedAttachments } : {}),
+      }
+
+      const title = shouldAutoRenameChat(chat)
+        ? generateChatTitle(trimmedContent || uploadedAttachments?.[0]?.name || '', chat.title)
+        : undefined
+
+      dispatch({ type: 'chats/addMessage', payload: { chatId, message: userMessage, title } })
+
+      const nextMessages = [...chat.messages, userMessage]
+      const assistantMessage = createMessage(chatId, 'assistant', '')
+
+      dispatch({
+        type: 'chats/addMessage',
+        payload: {
+          chatId,
+          message: assistantMessage,
+        },
+      })
+
       const assistantText = await requestChatCompletion(
         nextMessages,
         stateRef.current.settings,
         (chunk) => {
+          if (activeRequestIdRef.current !== requestId || controller.signal.aborted) {
+            return
+          }
+
           dispatch({
             type: 'chats/updateMessage',
             payload: {
@@ -136,6 +185,10 @@ export function ChatProvider({ children }: PropsWithChildren) {
         controller.signal,
       )
 
+      if (activeRequestIdRef.current !== requestId || controller.signal.aborted) {
+        return
+      }
+
       dispatch({
         type: 'chats/updateMessage',
         payload: {
@@ -145,32 +198,27 @@ export function ChatProvider({ children }: PropsWithChildren) {
         },
       })
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        if (!stateRef.current.chats
-          .find((item) => item.id === chatId)
-          ?.messages.find((message) => message.id === assistantMessage.id)?.content) {
-          dispatch({
-            type: 'chats/deleteMessage',
-            payload: { chatId, messageId: assistantMessage.id },
-          })
-        }
-        return
-      }
+      const currentChat = stateRef.current.chats.find((item) => item.id === chatId)
+      const latestAssistantMessage = getLatestAssistantMessage(currentChat)
 
-      if (!stateRef.current.chats
-        .find((item) => item.id === chatId)
-        ?.messages.find((message) => message.id === assistantMessage.id)?.content) {
+      if (latestAssistantMessage?.role === 'assistant' && !latestAssistantMessage.content) {
         dispatch({
           type: 'chats/deleteMessage',
-          payload: { chatId, messageId: assistantMessage.id },
+          payload: { chatId, messageId: latestAssistantMessage.id },
         })
+      }
+
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return
       }
 
       const message = error instanceof Error ? error.message : 'Не удалось получить ответ GigaChat.'
       dispatch({ type: 'ui/setError', payload: { value: message } })
     } finally {
-      abortControllerRef.current = null
-      dispatch({ type: 'ui/setLoading', payload: { value: false } })
+      if (activeRequestIdRef.current === requestId) {
+        abortControllerRef.current = null
+        dispatch({ type: 'ui/setLoading', payload: { value: false } })
+      }
     }
   }, [])
 

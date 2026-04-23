@@ -7,6 +7,7 @@ export const defaultSettings: ChatSettings = {
   temperature: 0.8,
   topP: 0.95,
   maxTokens: 1024,
+  repetitionPenalty: 1,
   systemPrompt: 'Ты дружелюбный ассистент, помогающий с интерфейсом.',
   theme: 'light',
 }
@@ -70,9 +71,11 @@ export function filterChats(chats: Chat[], query: string): Chat[] {
 
   return chats.filter((chat) => {
     const titleMatch = chat.title.toLowerCase().includes(normalized)
-    const lastMessageMatch = getLastMessagePreview(chat).toLowerCase().includes(normalized)
+    const messageMatch = chat.messages.some((message) =>
+      message.content.toLowerCase().includes(normalized),
+    )
 
-    return titleMatch || lastMessageMatch
+    return titleMatch || messageMatch
   })
 }
 

@@ -6,6 +6,12 @@
   font-weight: 400;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -14,6 +20,7 @@ body {
   margin: 0;
   background: var(--color-bg);
   color: var(--color-text);
+  overflow: hidden;
 }
 
 button,

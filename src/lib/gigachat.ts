@@ -1,4 +1,4 @@
-import type { ChatSettings, Message } from '../types/chat'
+import type { ChatSettings, Message, ModelName, PendingAttachment } from '../types/chat'
 
 type OAuthResponse = {
   access_token: string
@@ -17,6 +17,16 @@ type CompletionResponse = {
   }>
 }
 
+type ModelsResponse = {
+  data?: Array<{
+    id?: string
+  }>
+}
+
+type UploadResponse = {
+  id?: string
+}
+
 type ApiError = {
   message?: string
 }
@@ -24,6 +34,8 @@ type ApiError = {
 const scope = import.meta.env.VITE_GIGACHAT_SCOPE ?? 'GIGACHAT_API_PERS'
 const oauthUrl = import.meta.env.VITE_GIGACHAT_OAUTH_URL ?? '/api/gigachat/oauth'
 const chatUrl = import.meta.env.VITE_GIGACHAT_CHAT_URL ?? '/api/gigachat/chat/completions'
+const modelsUrl = import.meta.env.VITE_GIGACHAT_MODELS_URL ?? '/api/gigachat/models'
+const filesUrl = import.meta.env.VITE_GIGACHAT_FILES_URL ?? '/api/gigachat/files'
 
 let tokenCache: { value: string; expiresAt: number } | null = null
 
@@ -77,14 +89,21 @@ async function getAccessToken(signal?: AbortSignal) {
   return data.access_token
 }
 
-export async function requestChatCompletion(
-  messages: Message[],
-  settings: ChatSettings,
-  onChunk?: (content: string) => void,
-  signal?: AbortSignal,
-) {
-  const payload = {
-    model: settings.model,
+function buildPayload(messages: Message[], settings: ChatSettings) {
+  const hasAttachments = messages.some((message) =>
+    message.attachments?.some((attachment) => attachment.fileId),
+  )
+  const hasImageAttachments = messages.some((message) =>
+    message.attachments?.some(
+      (attachment) => attachment.fileId && attachment.mimeType.startsWith('image/'),
+    ),
+  )
+  const model = hasImageAttachments && settings.model === 'GigaChat'
+    ? 'GigaChat-Pro'
+    : settings.model
+
+  return {
+    model,
     messages: [
       {
         role: 'system',
@@ -93,17 +112,122 @@ export async function requestChatCompletion(
       ...messages.map((message) => ({
         role: message.role,
         content: message.content,
+        ...(message.attachments?.length
+          ? {
+              attachments: message.attachments
+                .map((attachment) => attachment.fileId)
+                .filter((attachment): attachment is string => Boolean(attachment)),
+            }
+          : {}),
       })),
     ],
     temperature: settings.temperature,
     top_p: settings.topP,
     max_tokens: settings.maxTokens,
-    stream: true,
+    repetition_penalty: settings.repetitionPenalty,
+    stream: !hasImageAttachments,
     update_interval: 0,
+    ...(hasAttachments && !hasImageAttachments ? { function_call: 'auto' } : {}),
+  }
+}
+
+async function requestDirect(
+  url: string,
+  init: RequestInit,
+  signal?: AbortSignal,
+  useJsonHeaders = true,
+) {
+  const accessToken = await getAccessToken(signal)
+  const headers = new Headers(init.headers)
+
+  headers.set('Accept', 'application/json')
+  headers.set('Authorization', `Bearer ${accessToken}`)
+
+  if (useJsonHeaders && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
   }
 
+  return fetch(url, {
+    ...init,
+    headers,
+    signal,
+  })
+}
+
+export async function requestAvailableModels(signal?: AbortSignal): Promise<ModelName[]> {
+  const response = import.meta.env.DEV
+    ? await requestDirect(modelsUrl, { method: 'GET' }, signal)
+    : await fetch(modelsUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+        signal,
+      })
+
+  if (!response.ok) {
+    return ['GigaChat', 'GigaChat-Plus', 'GigaChat-Pro', 'GigaChat-Max']
+  }
+
+  const data = (await response.json()) as ModelsResponse
+  const models = (data.data ?? [])
+    .map((model) => model.id)
+    .filter(
+      (model): model is ModelName =>
+        model === 'GigaChat' ||
+        model === 'GigaChat-Plus' ||
+        model === 'GigaChat-Pro' ||
+        model === 'GigaChat-Max',
+    )
+
+  return models.length ? models : ['GigaChat', 'GigaChat-Plus', 'GigaChat-Pro', 'GigaChat-Max']
+}
+
+export async function uploadAttachment(attachment: PendingAttachment, signal?: AbortSignal) {
+  const formData = new FormData()
+  formData.append('file', attachment.file, attachment.name)
+  formData.append('purpose', 'general')
+
+  const response = import.meta.env.DEV
+    ? await requestDirect(filesUrl, { method: 'POST', body: formData }, signal, false)
+    : await fetch(filesUrl, {
+        method: 'POST',
+        body: formData,
+        signal,
+      })
+
+  if (!response.ok) {
+    let errorData: ApiError | undefined
+
+    try {
+      errorData = (await response.json()) as ApiError
+    } catch {
+      errorData = undefined
+    }
+
+    throw new Error(getErrorMessage('Не удалось загрузить вложение в GigaChat.', errorData))
+  }
+
+  const data = (await response.json()) as UploadResponse
+
+  if (!data.id) {
+    throw new Error('GigaChat не вернул идентификатор загруженного файла.')
+  }
+
+  return data.id
+}
+
+export async function requestChatCompletion(
+  messages: Message[],
+  settings: ChatSettings,
+  onChunk?: (content: string) => void,
+  signal?: AbortSignal,
+) {
+  const payload = buildPayload(messages, settings)
+  const useStreaming = payload.stream === true
+
   if (!import.meta.env.DEV) {
-    return requestServerCompletion(payload, signal)
+    return requestServerCompletion(payload, onChunk, signal)
   }
 
   const accessToken = await getAccessToken(signal)
@@ -111,7 +235,7 @@ export async function requestChatCompletion(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
+      Accept: useStreaming ? 'text/event-stream' : 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify(payload),
@@ -136,18 +260,26 @@ export async function requestChatCompletion(
     return readStreamedCompletion(response.body, onChunk, signal)
   }
 
-  return requestRestCompletion(accessToken, payload, signal)
+  const data = (await response.json()) as CompletionResponse
+  const content = data.choices?.[0]?.message?.content?.trim()
+
+  if (!content) {
+    throw new Error('GigaChat вернул пустой ответ.')
+  }
+
+  return content
 }
 
 async function requestServerCompletion(
   payload: Record<string, unknown>,
+  onChunk?: (content: string) => void,
   signal?: AbortSignal,
 ) {
   const response = await fetch(chatUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Accept: 'application/json',
+      Accept: 'text/event-stream',
     },
     body: JSON.stringify(payload),
     signal,
@@ -163,6 +295,12 @@ async function requestServerCompletion(
     }
 
     throw new Error(getErrorMessage('Ошибка при запросе к серверному GigaChat proxy.', errorData))
+  }
+
+  const contentType = response.headers.get('content-type') ?? ''
+
+  if (response.body && contentType.includes('text/event-stream')) {
+    return readStreamedCompletion(response.body, onChunk, signal)
   }
 
   const data = (await response.json()) as CompletionResponse
@@ -255,7 +393,8 @@ async function readStreamedCompletion(
 
           try {
             const parsed = JSON.parse(data) as CompletionResponse
-            const delta = parsed.choices?.[0]?.delta?.content ?? parsed.choices?.[0]?.message?.content
+            const delta =
+              parsed.choices?.[0]?.delta?.content ?? parsed.choices?.[0]?.message?.content
 
             if (!delta) {
               continue

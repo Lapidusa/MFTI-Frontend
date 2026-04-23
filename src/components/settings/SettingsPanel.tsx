@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { requestAvailableModels } from '../../lib/gigachat'
+import type { ChatSettings, ModelName } from '../../types/chat'
 import { Button } from '../ui/Button'
 import { Slider } from '../ui/Slider'
 import { Toggle } from '../ui/Toggle'
-import type { ChatSettings } from '../../types/chat'
 
 export type SettingsState = ChatSettings
 
@@ -15,6 +16,8 @@ type SettingsPanelProps = {
   onReset: () => void
 }
 
+const fallbackModels: ModelName[] = ['GigaChat', 'GigaChat-Plus', 'GigaChat-Pro', 'GigaChat-Max']
+
 export function SettingsPanel({
   isOpen,
   settings,
@@ -23,9 +26,23 @@ export function SettingsPanel({
   onSave,
   onReset,
 }: SettingsPanelProps) {
+  const [models, setModels] = useState<ModelName[]>(fallbackModels)
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', settings.theme)
   }, [settings.theme])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const controller = new AbortController()
+
+    void requestAvailableModels(controller.signal)
+      .then((nextModels) => setModels(nextModels))
+      .catch(() => setModels(fallbackModels))
+
+    return () => controller.abort()
+  }, [isOpen])
 
   return (
     <div className={`settings-panel ${isOpen ? 'is-open' : ''}`}>
@@ -33,8 +50,8 @@ export function SettingsPanel({
       <div className="settings-drawer" role="dialog" aria-modal="true">
         <div className="settings-header">
           <h2>Настройки</h2>
-          <button className="icon-button" type="button" onClick={onClose}>
-            ✕
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Закрыть настройки">
+            ×
           </button>
         </div>
         <div className="settings-body">
@@ -49,10 +66,11 @@ export function SettingsPanel({
                 })
               }
             >
-              <option value="GigaChat">GigaChat</option>
-              <option value="GigaChat-Plus">GigaChat-Plus</option>
-              <option value="GigaChat-Pro">GigaChat-Pro</option>
-              <option value="GigaChat-Max">GigaChat-Max</option>
+              {models.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
             </select>
           </label>
           <Slider
@@ -61,9 +79,7 @@ export function SettingsPanel({
             max={2}
             step={0.1}
             value={settings.temperature}
-            onChange={(value) =>
-              onChange({ ...settings, temperature: value })
-            }
+            onChange={(value) => onChange({ ...settings, temperature: value })}
           />
           <Slider
             label={`Top-P: ${settings.topP.toFixed(2)}`}
@@ -72,6 +88,14 @@ export function SettingsPanel({
             step={0.01}
             value={settings.topP}
             onChange={(value) => onChange({ ...settings, topP: value })}
+          />
+          <Slider
+            label={`Repetition penalty: ${settings.repetitionPenalty.toFixed(2)}`}
+            min={0}
+            max={2}
+            step={0.01}
+            value={settings.repetitionPenalty}
+            onChange={(value) => onChange({ ...settings, repetitionPenalty: value })}
           />
           <label>
             Max Tokens
@@ -93,9 +117,7 @@ export function SettingsPanel({
             <textarea
               value={settings.systemPrompt}
               rows={4}
-              onChange={(event) =>
-                onChange({ ...settings, systemPrompt: event.target.value })
-              }
+              onChange={(event) => onChange({ ...settings, systemPrompt: event.target.value })}
             />
           </label>
           <Toggle

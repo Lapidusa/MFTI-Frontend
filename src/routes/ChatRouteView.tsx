@@ -1,14 +1,14 @@
 import { useCallback, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useChatContext } from '../context/useChatContext'
-import type { Chat } from '../types/chat'
+import type { Chat, PendingAttachment } from '../types/chat'
 import { ChatWindow } from '../components/chat/ChatWindow'
 
 type ChatRouteViewProps = {
   chats: Chat[]
   isLoading: boolean
   error: string | null
-  onSend: (chatId: string, content: string) => void | Promise<void>
+  onSend: (chatId: string, payload: { content: string; attachments: PendingAttachment[] }) => void | Promise<void>
   onStop: () => void
   onOpenSidebar: () => void
   onCreateChat: () => void
@@ -47,10 +47,10 @@ export default function ChatRouteView({
   }, [chat, id, navigate, setActiveChat])
 
   const handleSend = useCallback(
-    (content: string) => {
+    (payload: { value: string; attachments: PendingAttachment[] }) => {
       if (!chat) return
 
-      return onSend(chat.id, content)
+      return onSend(chat.id, { content: payload.value, attachments: payload.attachments })
     },
     [chat, onSend],
   )

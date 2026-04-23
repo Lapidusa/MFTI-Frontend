@@ -10,10 +10,23 @@ type MessageListProps = {
   endRef: RefObject<HTMLDivElement | null>
 }
 
+function hasVisibleMessageBody(message: Message) {
+  return message.content.trim().length > 0 || Boolean(message.attachments?.length)
+}
+
+function hasVisibleOptionalMessageBody(message?: Message) {
+  return message ? hasVisibleMessageBody(message) : false
+}
+
 export function MessageList({ messages, isTyping, endRef }: MessageListProps) {
+  const latestAssistantMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === 'assistant')
   const visibleMessages = messages.filter(
-    (message): message is Message & { role: 'user' | 'assistant' } => message.role !== 'system',
+    (message): message is Message & { role: 'user' | 'assistant' } =>
+      message.role !== 'system' && hasVisibleMessageBody(message),
   )
+  const showTypingIndicator = Boolean(isTyping) && !hasVisibleOptionalMessageBody(latestAssistantMessage)
 
   if (messages.length === 0) {
     return (
@@ -32,8 +45,8 @@ export function MessageList({ messages, isTyping, endRef }: MessageListProps) {
       {visibleMessages.map((message) => (
         <ChatMessage key={message.id} message={message} variant={message.role} />
       ))}
-      <TypingIndicator isVisible={Boolean(isTyping)} />
-      <div ref={endRef} />
+      <TypingIndicator isVisible={showTypingIndicator} />
+      <div ref={endRef} className="message-list-end" />
     </div>
   )
 }

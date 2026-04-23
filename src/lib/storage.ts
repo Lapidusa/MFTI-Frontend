@@ -1,6 +1,21 @@
 import { CHAT_STORAGE_KEY, defaultSettings } from './chat-utils'
-import type { Chat, ChatState, Message } from '../types/chat'
+import type { Chat, ChatAttachment, ChatState, Message } from '../types/chat'
 import { emptyChatState } from '../context/chat-reducer'
+
+function isAttachment(value: unknown): value is ChatAttachment {
+  if (!value || typeof value !== 'object') return false
+
+  const candidate = value as Record<string, unknown>
+
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.name === 'string' &&
+    typeof candidate.mimeType === 'string' &&
+    typeof candidate.size === 'number' &&
+    (candidate.fileId === undefined || typeof candidate.fileId === 'string') &&
+    (candidate.previewUrl === undefined || typeof candidate.previewUrl === 'string')
+  )
+}
 
 function isMessage(value: unknown): value is Message {
   if (!value || typeof value !== 'object') return false
@@ -12,7 +27,9 @@ function isMessage(value: unknown): value is Message {
     typeof candidate.chatId === 'string' &&
     typeof candidate.role === 'string' &&
     typeof candidate.content === 'string' &&
-    typeof candidate.createdAt === 'string'
+    typeof candidate.createdAt === 'string' &&
+    (candidate.attachments === undefined ||
+      (Array.isArray(candidate.attachments) && candidate.attachments.every(isAttachment)))
   )
 }
 

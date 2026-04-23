@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useChatContext } from '../../context/useChatContext'
+
 const Sidebar = lazy(() => import('../sidebar/Sidebar').then((module) => ({ default: module.Sidebar })))
 const SettingsPanel = lazy(() =>
   import('../settings/SettingsPanel').then((module) => ({ default: module.SettingsPanel })),

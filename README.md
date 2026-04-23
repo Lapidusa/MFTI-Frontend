@@ -1,140 +1,94 @@
 # MFTI Frontend Chat
 
-Учебное приложение-чата на `React + TypeScript + Vite` с интеграцией `GigaChat`, локальным сохранением истории, lazy loading, тестами и подготовкой к деплою на Vercel.
+Чат-приложение на `React + TypeScript + Vite` с интерфейсом в стиле ChatGPT и интеграцией с `GigaChat API`.
 
-## Демо
+Реализовано под итоговое домашнее задание:
 
-- Public demo: добавьте ссылку после деплоя в Vercel, например `https://your-project.vercel.app`
-- Bundle report: [docs/bundle-stats.html](./docs/bundle-stats.html)
-- Bundle notes: [docs/bundle-summary.md](./docs/bundle-summary.md)
-
-## Что сделано для ДЗ 9
-
-- вынесены тяжёлые зависимости `react-markdown` и `highlight.js` в отдельный чанк `markdown`
-- `Sidebar`, `SettingsPanel` и route views загружаются через `React.lazy + Suspense`
-- `ChatItem` обёрнут в `React.memo`
-- стабилизированы ключевые обработчики через `useCallback`
-- добавлен `ErrorBoundary` вокруг области сообщений
-- для UI-ошибок добавлена кнопка `Повторить`
-- добавлен bundle analyzer и сохранён отчёт в `docs/`
-- добавлен `vercel.json` для SPA routing
-- добавлена serverless proxy-функция для GigaChat в `api/gigachat/chat/completions.ts`
+- чат с историей сообщений и разным оформлением ролей `user/assistant`
+- markdown-рендеринг ответов и подсветка кода
+- streaming-ответы через SSE с кнопкой остановки генерации
+- автоматический скролл к последнему сообщению
+- копирование ответа ассистента
+- sidebar со списком чатов, поиском, переименованием и удалением
+- автогенерация названия чата по первому сообщению
+- сохранение чатов и настроек в `localStorage`
+- настройки модели: `temperature`, `top_p`, `max_tokens`, `repetition_penalty`, `system prompt`
+- получение списка моделей через `GET /api/v1/models`
+- загрузка изображений и отправка multimodal-запросов в GigaChat
+- serverless proxy для production (`chat/completions`, `models`, `files`)
 
 ## Стек
 
-| Технология | Версия |
-| --- | --- |
-| React | 19.2.4 |
-| React DOM | 19.2.4 |
-| TypeScript | 5.9.3 |
-| Vite | 8.0.0 |
-| React Router DOM | 7.9.5 |
-| Vitest | 4.1.4 |
-| React Testing Library | 16.3.2 |
-| user-event | 14.6.1 |
-| jsdom | 29.0.2 |
-| rollup-plugin-visualizer | 7.0.1 |
+- React 19
+- TypeScript
+- Vite
+- Context API + `useReducer`
+- CSS
+- `react-markdown`
+- `highlight.js`
+- Vitest + Testing Library
 
-## Запуск локально
+## Запуск
 
-1. Клонируйте репозиторий:
-
-```bash
-git clone https://github.com/Lapidusa/MFTI-Frontend.git
-cd MFTI-Frontend
-```
-
-2. Установите зависимости:
+1. Установите зависимости.
 
 ```bash
 npm install
 ```
 
-3. Создайте `.env` на основе `.env.example`.
+2. Создайте `.env` по примеру `.env.example`.
 
-4. Для локальной разработки заполните минимум `VITE_GIGACHAT_AUTH_KEY`.
+3. Для локальной разработки заполните минимум:
 
-5. Запустите проект:
+```env
+VITE_GIGACHAT_AUTH_KEY=...
+```
+
+4. Запустите проект:
 
 ```bash
 npm run dev
 ```
 
-6. Дополнительно:
+## Переменные окружения
+
+### Клиент / локальная разработка
+
+- `VITE_GIGACHAT_AUTH_KEY` - Base64 строка `client_id:client_secret`
+- `VITE_GIGACHAT_SCOPE` - scope OAuth, по умолчанию `GIGACHAT_API_PERS`
+- `VITE_GIGACHAT_OAUTH_URL` - URL OAuth proxy
+- `VITE_GIGACHAT_CHAT_URL` - URL chat completions proxy
+- `VITE_GIGACHAT_MODELS_URL` - URL списка моделей
+- `VITE_GIGACHAT_FILES_URL` - URL загрузки файлов
+
+### Production / Vercel
+
+- `GIGACHAT_AUTH_KEY`
+- `GIGACHAT_SCOPE`
+
+## API
+
+Приложение использует:
+
+- `POST /api/v1/chat/completions`
+- `GET /api/v1/models`
+- `POST /api/v1/files`
+- `POST /api/v2/oauth`
+
+В development запросы идут через Vite proxy, в production через serverless-функции в папке [api](./api).
+
+## Проверка
+
+Основные команды:
 
 ```bash
 npm test
 npm run build
-npm run analyze
 ```
 
-## Переменные окружения
+## Что показать при сдаче
 
-| Переменная | Где используется | Обязательна | Описание |
-| --- | --- | --- | --- |
-| `VITE_GIGACHAT_AUTH_KEY` | локальная разработка | да, только для `npm run dev` | Base64 строка `client_id:client_secret` для прямой работы через Vite proxy |
-| `VITE_GIGACHAT_SCOPE` | локальная разработка | нет | Scope для OAuth, по умолчанию `GIGACHAT_API_PERS` |
-| `VITE_GIGACHAT_OAUTH_URL` | локальная разработка | нет | URL OAuth endpoint, по умолчанию `/api/gigachat/oauth` |
-| `VITE_GIGACHAT_CHAT_URL` | локальная разработка и prod | нет | URL chat endpoint, по умолчанию `/api/gigachat/chat/completions` |
-| `GIGACHAT_AUTH_KEY` | Vercel Function | да для production | Секрет GigaChat, хранится только в настройках Vercel |
-| `GIGACHAT_SCOPE` | Vercel Function | нет | Scope для production proxy, по умолчанию `GIGACHAT_API_PERS` |
-
-## Деплой в Vercel
-
-Проект подготовлен под Vercel: есть `vercel.json` для deep links и `api/gigachat/chat/completions.ts`, чтобы не держать секрет в клиентском бандле.
-
-### Вариант через UI
-
-1. Откройте [Vercel Dashboard](https://vercel.com/new).
-2. Импортируйте репозиторий `Lapidusa/MFTI-Frontend`.
-3. Framework Preset: `Vite`.
-4. Build Command: `npm run build`.
-5. Output Directory: `dist`.
-6. Добавьте env-переменные:
-   - `GIGACHAT_AUTH_KEY`
-   - `GIGACHAT_SCOPE`
-7. Нажмите `Deploy`.
-
-### Вариант через CLI
-
-```bash
-npm i -g vercel
-vercel
-vercel --prod
-```
-
-При первом запуске CLI попросит авторизацию и привязку проекта.
-
-## Что проверить после деплоя
-
-1. Откройте `/` и `/chat/test-route` напрямую в новой вкладке: SPA rewrite должен работать.
-2. Проверьте приложение в режиме инкогнито.
-3. Отправьте сообщение и убедитесь, что ответы приходят через production proxy.
-4. Убедитесь, что в собранном клиентском JS нет `GIGACHAT_AUTH_KEY`.
-5. Добавьте реальную публичную ссылку в секцию `Демо`.
-
-## Бандл
-
-После `npm run analyze` отчёт сохраняется в `docs/bundle-stats.html`.
-
-Ключевой результат текущей сборки:
-
-- `dist/assets/index-*.js` около `235 kB`
-- `dist/assets/markdown-*.js` около `161 kB`
-- `Sidebar`, `SettingsPanel`, `ChatRouteView`, `EmptyChatRouteView` вынесены в отдельные чанки
-
-Это означает, что `react-markdown` и `highlight.js` больше не попадают в стартовый UI-чанк.
-
-## Самопроверка
-
-- `npm test` проходит
-- `npm run build` проходит
-- lazy loading настроен
-- `ErrorBoundary` добавлен
-- Vercel deployment config добавлен
-- bundle analyzer добавлен
-
-## Ограничения
-
-- Публичный URL не добавлен автоматически, потому что деплой требует авторизации в вашем аккаунте Vercel.
-- Для полного соответствия чек-листу добавьте после деплоя скриншоты работающего приложения в README или `docs/`.
+- ссылку на репозиторий
+- README с инструкцией запуска
+- демо-скриншоты или видео работы приложения
+- при наличии деплоя ссылку на опубликованную версию

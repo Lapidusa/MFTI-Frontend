@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Message } from './Message'
 import type { Message as MessageData } from '../../types/chat'
@@ -21,12 +22,12 @@ describe('Message', () => {
     })
   })
 
-  it('renders user message text with user class and without copy button', () => {
+  it('renders user message text with user class and copy button', () => {
     const { container } = render(<Message message={baseMessage} variant="user" />)
 
     expect(screen.getByText('Текст сообщения')).toBeInTheDocument()
     expect(container.firstChild).toHaveClass('message', 'user')
-    expect(screen.queryByRole('button', { name: /копировать/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Копировать сообщение' })).toBeInTheDocument()
   })
 
   it('renders assistant message text with assistant class and copy button', () => {
@@ -37,5 +38,39 @@ describe('Message', () => {
     expect(screen.getByText('Текст сообщения')).toBeInTheDocument()
     expect(container.firstChild).toHaveClass('message', 'assistant')
     expect(screen.getByRole('button', { name: 'Копировать сообщение' })).toBeInTheDocument()
+  })
+
+  it('updates copy button label after copy button click', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    render(<Message message={{ ...baseMessage, role: 'assistant' }} variant="assistant" />)
+
+    await user.click(screen.getByRole('button', { name: 'Копировать сообщение' }))
+
+    expect(writeText).toHaveBeenCalledWith('Текст сообщения')
+    expect(screen.getByRole('button', { name: 'Сообщение скопировано' })).toBeInTheDocument()
+  })
+
+  it('copies user message text after copy button click', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    render(<Message message={baseMessage} variant="user" />)
+
+    await user.click(screen.getByRole('button', { name: 'Копировать сообщение' }))
+
+    expect(writeText).toHaveBeenCalledWith('Текст сообщения')
+    expect(screen.getByRole('button', { name: 'Сообщение скопировано' })).toBeInTheDocument()
   })
 })
