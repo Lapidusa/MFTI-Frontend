@@ -21,6 +21,13 @@ export default function RichMessageContent({ content }: RichMessageContentProps)
   return (
     <ReactMarkdown
       components={{
+        a({ href, children, ...props }) {
+          return (
+            <a href={href} target="_blank" rel="noreferrer noopener" {...props}>
+              {children}
+            </a>
+          )
+        },
         code({ className, children, ...props }) {
           const match = /language-(\w+)/.exec(className ?? '')
           const code = String(children).replace(/\n$/, '')
